@@ -1,0 +1,95 @@
+---
+title: "Riddler Classic Urn Problem: Method of Moments Solution"
+author: "Edward Harvey"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(ggplot2)
+```
+
+
+## The Problem
+The following problem appeared as FiveThirtyEight's ["Riddler Classic"](https://fivethirtyeight.com/features/can-you-switch-a-digit/) puzzle on June 17, 2022.
+
+
+You have an urn with an equal number of red balls and white balls, but you have no information about what that number might be. You draw 19 balls at random, without replacement, and you get eight red balls and 11 white balls. What is your best guess for the original number of balls (red and white) in the urn?
+
+## Most Common Method: MLE
+As others have noted, this is a classic example of the hypergeometric distribution. Solutions posted online used maximum likelihood methods. I replicated this work below.
+
+
+```{r}
+Nvals <- seq(from=22, to=60, by=2)
+likelihood <- function(N, k=8, n=19){
+  return(
+    -1*choose(N/2,k)*
+      choose(N/2,n-k)/
+      choose(N, n))
+}
+Nlikelihood <- -1*sapply(Nvals, likelihood)
+
+
+optimresult <- optim(par=22, fn=likelihood, method = "Brent", lower=22, upper=100)
+
+data <- data.frame(Nvals,Nlikelihood)
+
+ggplot(data=data, aes(x=Nvals, y=Nlikelihood))+
+  geom_point()+
+  geom_line(col="red")+
+  geom_vline(xintercept = 34, col="blue")+
+  scale_x_continuous(breaks=seq(22,60,2))+
+  theme_bw()+
+  xlab("Number of balls")+
+  ylab("Likelihood")
+
+```
+
+
+## Alternative Solutions: Method of Moments
+
+Here I use "method of moments" to come up with an estimate. 
+
+Let us define a hypergeometric random variable $X$ representing the urn experiment where $k$ is a specific outcome of the experiment (# of red balls),  $n$ is the number of balls drawn from the urn, $K$ is the original number of red balls in the urn, and $N$ is the total number of balls in the urn. 
+
+Leaving out some tedious work, we take as given that the expected value and variance (first and second moments) of a hypergeometric distribution are given by 
+$$E[X| n, N, K]=n \frac{K}{N}$$
+$$Var(X| n, N, K)= (n) \frac{(K)}{(N)} \frac{(N-K)}{(N)} \frac{(N-n)}{(N-1)}$$
+
+Since $K=\frac{N}{2}$ and $n=19$, 
+$$E[X]=19 (\frac{1}{2})=9.5$$
+
+This is obviously not a possible number of red balls since it is not a whole number, but it is the expected long run average number of red balls in many repeated experiments. 
+
+The observed result from our experiment is 8 red balls. This deviates from the expected value by $\frac{3}{2}$. Although I have only one result from the experiment, I will use this as an estimate of the standard deviation of the random variable. My estimate of the variance is therefore $\frac{9}{4}$.
+
+Plugging in we have
+$$Var(X)=\frac{9}{4}= (19)(\frac{1}{2})(\frac{1}{2})\frac{(N-19)}{(N-1)} $$
+
+Solving for N yields $N=35.2$, which is not an even integer. Rounding up to the nearest even integer gives $N=36$ as a final estimate. It is not clear that rounding up is necessarily the best choice, however. 34 seems justifiable as well. 
+
+## Comparing the two methods
+
+It would be helpful to compare the two solutions against each other. First let's assume that the best guess is 34. If we run many, many, trials with 34 balls in the urn, we get 8 red balls about 16.21% of the time. If we run many, many, trials with 36 balls in the urn, we get 8 red balls about 16.19% of the time. Again, 34 and 36 both seem defensible. 
+
+```{r, echo=TRUE}
+size <- 99999999
+exp34 <- rhyper(nn=size,m=17, n=17, k=19)
+exp36 <- rhyper(nn=size,m=18, n=18, k=19)
+
+(prop34 <- sum(exp34==8)/size)
+(prop36 <- sum(exp36==8)/size)
+
+```
+
+
+
+
+
+
